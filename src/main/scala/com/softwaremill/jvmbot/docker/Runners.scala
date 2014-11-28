@@ -5,7 +5,7 @@ import scala.annotation.tailrec
 object Runners {
   val GroovyImage = "szimano/groovy-eval"
   val ScalaImage = "adamw/scalaeval"
-  val runners = Seq(new DockerRunner(GroovyImage, "-e"), new DockerRunner(ScalaImage, "-e"))
+  val runners = Seq(new DockerRunner(GroovyImage, "-e"), new DockerRunner(ScalaImage, ""))
 
   def run(code: String): String = {
     run(runners, code)

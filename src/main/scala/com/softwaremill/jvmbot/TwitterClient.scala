@@ -13,22 +13,20 @@ import com.typesafe.scalalogging.slf4j.StrictLogging
 import twitter4j._
 import scala.collection.JavaConversions._
 import scala.concurrent.duration._
-import scala.pickling._
-import scala.pickling.json._
 
 object TwitterClient extends App with StrictLogging {
   val actorSystem = ActorSystem()
 
   import actorSystem.dispatcher
 
-  val queueSender = actorSystem.actorOf(Props(new MentionQueueSender()))
-  val mentionConsumer = actorSystem.actorOf(Props(new MentionConsumer(queueSender)))
-  val mentionPuller = actorSystem.actorOf(Props(new MentionPuller(mentionConsumer)))
   val codeRunner = actorSystem.actorOf(Props(new CodeRunner))
   val replySender = actorSystem.actorOf(Props(new ReplySender))
-  val queuePuller = actorSystem.actorOf(Props(new MentionQueueReceiver(codeRunner, replySender)))
+  val queueReceiver = actorSystem.actorOf(Props(new MentionQueueReceiver(codeRunner, replySender)))
+  val queueSender = actorSystem.actorOf(Props(new MentionQueueSender(queueReceiver)))
+  val mentionConsumer = actorSystem.actorOf(Props(new MentionConsumer(queueSender)))
+  val mentionPuller = actorSystem.actorOf(Props(new MentionPuller(mentionConsumer)))
+
   actorSystem.scheduler.schedule(0.seconds, 1.minute, mentionPuller, Pull)
-  actorSystem.scheduler.schedule(0.seconds, 5.seconds, queuePuller, Pull)
 }
 
 class MentionPuller(consumer: ActorRef) extends Actor with StrictLogging {
@@ -73,9 +71,7 @@ class MentionConsumer(queueSender: ActorRef) extends Actor with StrictLogging {
   }
 }
 
-class MentionQueueSender extends Actor with StrictLogging {
-
-  import AWS._
+class MentionQueueSender(queueReceiver: ActorRef) extends Actor with StrictLogging {
 
   val MessagePrefix = "@jvmbot "
 
@@ -88,26 +84,21 @@ class MentionQueueSender extends Actor with StrictLogging {
     case s: Status =>
       logger.info(s"sending mention to SQS from ${s.getUser.getScreenName}")
       codeFromMessage(s.getText).foreach(code =>
-        sqsClient.sendMessage(queueUrl, CodeTweet(code, s.getUser.getScreenName, s.getId).pickle.value))
+        queueReceiver ! CodeTweet(code, s.getUser.getScreenName, s.getId))
   }
 }
 
 class MentionQueueReceiver(codeRunner: ActorRef, replySender: ActorRef) extends Actor with StrictLogging {
 
-  import AWS._
   import akka.pattern.ask
   import context.dispatcher
 
   override def receive = {
-    case Pull =>
+    case status: CodeTweet =>
       logger.info("pulling sqs")
-      sqsClient.receiveMessage(queueUrl).getMessages.foreach { message: Message =>
-        sqsClient.deleteMessage(queueUrl, message.getReceiptHandle)
-        val status = message.getBody.unpickle[CodeTweet]
-        logger.info(s"pulled mention from SQS from ${status.source}")
-        implicit val timeout = Timeout(10.minutes)
-        (codeRunner ? status.code).mapTo[String].map(codeResult => replySender ! status.copy(code = codeResult))
-      }
+      logger.info(s"pulled mention from SQS from ${status.source}")
+      implicit val timeout = Timeout(10.minutes)
+      (codeRunner ? status.code).mapTo[String].map(codeResult => replySender ! status.copy(code = codeResult))
   }
 }
 
@@ -125,9 +116,6 @@ object Pull
 object AWS {
   val awsCredentials: PropertiesCredentials = new PropertiesCredentials(this.getClass.getResourceAsStream("/aws.properties"))
   val dynamoClient = new AmazonDynamoDBClient(awsCredentials)
-  val sqsClient = new AmazonSQSClient(awsCredentials)
-  val QueueName = "jvmbot"
-  val queueUrl = sqsClient.createQueue(QueueName).getQueueUrl
 }
 
 case class CodeTweet(code: String, source: String, originalId: Long)
