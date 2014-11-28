@@ -6,7 +6,7 @@ import com.spotify.docker.client.messages.ContainerConfig
 
 class DockerRunner(image: String) {
   def run(code: String) = {
-    val command = s"-e println $code"
+    val command = s"-e println($code)"
     val docker = DefaultDockerClient.fromEnv().build()
     docker.pull(image)
     val config = ContainerConfig.builder().image(image)
