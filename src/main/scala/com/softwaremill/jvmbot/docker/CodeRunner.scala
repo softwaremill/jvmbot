@@ -1,7 +1,6 @@
 package com.softwaremill.jvmbot.docker
 
 import akka.actor.Actor
-import com.softwaremill.jvmbot.docker.DockerRunner
 
 class CodeRunner extends Actor {
   val Image = "webratio/groovy:2.3.7"

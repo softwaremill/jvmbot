@@ -2,10 +2,10 @@ name := "jvmbot"
 
 version := "1.0"
 
-scalaVersion := "2.11.2"
+scalaVersion := "2.11.4"
 
 libraryDependencies ++= Seq(
-  "org.scala-lang" % "scala-reflect" % "2.11.2",
+  "org.scala-lang" % "scala-reflect" % "2.11.4",
   // util
   "com.typesafe.scala-logging" %% "scala-logging-slf4j" % "2.1.2",
   "ch.qos.logback" % "logback-classic" % "1.1.2",
@@ -16,3 +16,13 @@ libraryDependencies ++= Seq(
   "com.spotify" % "docker-client" % "2.7.1",
   "org.scala-lang" %% "scala-pickling" % "0.9.1"
 )
+
+mainClass in assembly := Some("com.softwaremill.jvmbot.TwitterClient")
+
+assemblyMergeStrategy in assembly := {
+  case PathList(ps @ _*) if ps.last == "pom.properties" => MergeStrategy.first
+  case PathList(ps @ _*) if ps.last == "pom.xml" => MergeStrategy.first
+  case x =>
+    val oldStrategy = (assemblyMergeStrategy in assembly).value
+    oldStrategy(x)
+}
