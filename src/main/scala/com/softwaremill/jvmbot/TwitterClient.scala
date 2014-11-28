@@ -36,7 +36,6 @@ class MentionPuller(consumer: ActorRef) extends Actor {
   override def receive = {
     case Pull =>
       val statuses = twitter.getMentionsTimeline
-      System.out.println("Showing home timeline.")
       for (status <- statuses) {
         consumer ! status
       }
