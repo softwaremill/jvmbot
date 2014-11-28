@@ -4,9 +4,9 @@ import com.spotify.docker.client.DefaultDockerClient
 import com.spotify.docker.client.DockerClient.LogsParameter
 import com.spotify.docker.client.messages.ContainerConfig
 
-class DockerRunner(image: String) {
+class DockerRunner(image: String, args:String) {
   def run(code: String) = {
-    val command = s"-e println($code)"
+    val command = s"$args println($code)"
     val docker = DefaultDockerClient.fromEnv().build()
     docker.pull(image)
     val config = ContainerConfig.builder().image(image)
@@ -35,6 +35,6 @@ class DockerRunner(image: String) {
 }
 
 object DockerRunner extends App {
-  val docker = new DockerRunner("webratio/groovy:2.3.7")
+  val docker = new DockerRunner("webratio/groovy:2.3.7", "-e")
   println(docker.run("(1..10).collect{it.toString()}.join(',')"))
 }

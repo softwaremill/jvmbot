@@ -4,7 +4,7 @@ import scala.annotation.tailrec
 
 object Runners {
   val GroovyImage = "webratio/groovy:2.3.7"
-  val runners = Seq(new DockerRunner(GroovyImage))
+  val runners = Seq(new DockerRunner(GroovyImage, "-e"))
 
   def run(code: String): String = {
     run(runners, code)
