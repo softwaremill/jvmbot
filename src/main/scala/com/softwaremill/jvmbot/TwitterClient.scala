@@ -84,7 +84,7 @@ class MentionQueueSender extends Actor {
   override def receive = {
     case s: Status =>
       codeFromMessage(s.getText).foreach(code =>
-        sqsClient.sendMessage(queueUrl, CodeTweet(code, s.getUser.getScreenName).pickle.value))
+        sqsClient.sendMessage(queueUrl, CodeTweet(code, s.getUser.getScreenName, s.getId).pickle.value))
   }
 }
 
@@ -100,7 +100,7 @@ class MentionQueueReceiver(codeRunner: ActorRef, replySender: ActorRef) extends 
         sqsClient.deleteMessage(queueUrl, message.getReceiptHandle)
         val status = message.getBody.unpickle[CodeTweet]
         implicit val timeout = Timeout(10.minutes)
-        (codeRunner ? status.code).mapTo[String].map(codeResult => replySender ! CodeTweet(codeResult, status.source))
+        (codeRunner ? status.code).mapTo[String].map(codeResult => replySender ! status.copy(code = codeResult))
       }
   }
 }
@@ -109,7 +109,7 @@ class ReplySender extends Actor {
   override def receive = {
     case t: CodeTweet =>
       val twitter = TwitterFactory.getSingleton
-      twitter.updateStatus(s"@${t.source} ${t.code}".take(140))
+      twitter.updateStatus(new StatusUpdate(s"@${t.source} ${t.code}".take(140)).inReplyToStatusId(t.originalId))
   }
 }
 
@@ -123,4 +123,4 @@ object AWS {
   val queueUrl = sqsClient.createQueue(QueueName).getQueueUrl
 }
 
-case class CodeTweet(code: String, source: String)
+case class CodeTweet(code: String, source: String, originalId: Long)

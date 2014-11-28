@@ -24,3 +24,8 @@ class DockerRunner(image:String) {
     log
   }
 }
+
+object DockerRunner extends App {
+  val docker = new DockerRunner("webratio/groovy:2.3.7")
+  println(docker.run("(1..10).collect{it.toString()}.join(',')"))
+}
