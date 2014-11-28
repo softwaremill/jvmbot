@@ -109,7 +109,7 @@ class ReplySender extends Actor {
   override def receive = {
     case t: CodeTweet =>
       val twitter = TwitterFactory.getSingleton
-      twitter.updateStatus(s"@${t.source} ${t.code}")
+      twitter.updateStatus(s"@${t.source} ${t.code}".take(140))
   }
 }
 
