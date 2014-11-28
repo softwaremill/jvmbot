@@ -17,3 +17,6 @@ project/plugins/project/
 .worksheet
 
 .idea
+
+**/twitter4j.properties
+**/aws.properties
