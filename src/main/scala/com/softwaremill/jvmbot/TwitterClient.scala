@@ -1,6 +1,7 @@
 package com.softwaremill.jvmbot
 
 import akka.actor.{ActorRef, Props, ActorSystem, Actor}
+import akka.util.Timeout
 import com.amazonaws.auth.{PropertiesCredentials, BasicAWSCredentials, AWSCredentials}
 import com.amazonaws.regions.{Region, Regions}
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
@@ -9,25 +10,27 @@ import com.amazonaws.services.sqs.AmazonSQSClient
 import com.amazonaws.services.sqs.model.Message
 import twitter4j._
 import scala.collection.JavaConversions._
-import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.pickling._
 import scala.pickling.json._
 
 object TwitterClient extends App {
   val actorSystem = ActorSystem()
+
   import actorSystem.dispatcher
-  val queueSender = actorSystem.actorOf(Props(classOf[MentionQueueSender]))
-  val mentionConsumer = actorSystem.actorOf(Props(classOf[MentionConsumer], queueSender))
-  val mentionPuller = actorSystem.actorOf(Props(classOf[MentionPuller], mentionConsumer))
-  val queuePuller = actorSystem.actorOf(Props(classOf[MentionQueueReceiver]))
+
+  val queueSender = actorSystem.actorOf(Props(new MentionQueueSender()))
+  val mentionConsumer = actorSystem.actorOf(Props(new MentionConsumer(queueSender)))
+  val mentionPuller = actorSystem.actorOf(Props(new MentionPuller(mentionConsumer)))
+  val codeRunner = actorSystem.actorOf(Props(new CodeRunner))
+  val replySender = actorSystem.actorOf(Props(new ReplySender))
+  val queuePuller = actorSystem.actorOf(Props(new MentionQueueReceiver(codeRunner, replySender)))
   actorSystem.scheduler.schedule(0.seconds, 1.minute, mentionPuller, Pull)
   actorSystem.scheduler.schedule(0.seconds, 5.seconds, queuePuller, Pull)
 }
 
 class MentionPuller(consumer: ActorRef) extends Actor {
   val twitter = TwitterFactory.getSingleton
-
 
   override def receive = {
     case Pull =>
@@ -40,6 +43,7 @@ class MentionPuller(consumer: ActorRef) extends Actor {
 }
 
 class MentionConsumer(queueSender: ActorRef) extends Actor {
+
   import AWS._
 
   var consumedMentions: Set[Long] = Set()
@@ -55,8 +59,8 @@ class MentionConsumer(queueSender: ActorRef) extends Actor {
   }
 
   override def receive = {
-    case s:Status =>
-      if (!consumedMentions.contains(s.getId)) {   
+    case s: Status =>
+      if (!consumedMentions.contains(s.getId)) {
         dynamoClient.putItem(new PutItemRequest(DynamoTable,
           mapAsJavaMap(Map(DynamoId -> new AttributeValue().withS(s.getId.toString)))))
         println(s"Wrote status with id ${s.getId} to dynamo")
@@ -67,24 +71,52 @@ class MentionConsumer(queueSender: ActorRef) extends Actor {
 }
 
 class MentionQueueSender extends Actor {
+
   import AWS._
 
+  val MessagePrefix = "@jvmbot "
+
+  def codeFromMessage(msg: String): Option[String] =
+    if (msg.startsWith(MessagePrefix)) {
+      Some(msg.substring(MessagePrefix.length))
+    } else None
+
   override def receive = {
-    case s:Status =>
-      sqsClient.sendMessage(queueUrl, JsonStatus(s.getText, s.getUser.getScreenName).pickle.value)
+    case s: Status =>
+      codeFromMessage(s.getText).foreach(code =>
+        sqsClient.sendMessage(queueUrl, CodeTweet(code, s.getUser.getScreenName).pickle.value))
   }
 }
 
-class MentionQueueReceiver extends Actor {
+class MentionQueueReceiver(codeRunner: ActorRef, replySender: ActorRef) extends Actor {
+
   import AWS._
+  import akka.pattern.ask
+  import context.dispatcher
 
   override def receive = {
     case Pull =>
       sqsClient.receiveMessage(queueUrl).getMessages.foreach { message: Message =>
         sqsClient.deleteMessage(queueUrl, message.getReceiptHandle)
-        val status = message.getBody.unpickle[JsonStatus]
-        println(s"got this awesome status: ${status}")
+        val status = message.getBody.unpickle[CodeTweet]
+        implicit val timeout = Timeout(10.minutes)
+        (codeRunner ? status.code).mapTo[String].map(codeResult => replySender ! CodeTweet(codeResult, status.source))
       }
+  }
+}
+
+class CodeRunner extends Actor {
+  override def receive = {
+    case code: String =>
+      sender() ! code  
+  }
+}
+
+class ReplySender extends Actor {
+  override def receive = {
+    case t: CodeTweet =>
+      val twitter = TwitterFactory.getSingleton
+      twitter.updateStatus(s"@${t.source} ${t.code}")
   }
 }
 
@@ -98,4 +130,4 @@ object AWS {
   val queueUrl = sqsClient.createQueue(QueueName).getQueueUrl
 }
 
-case class JsonStatus(msg: String, source: String)
+case class CodeTweet(code: String, source: String)
