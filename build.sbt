@@ -5,6 +5,7 @@ version := "1.0"
 scalaVersion := "2.11.2"
 
 libraryDependencies ++= Seq(
+  "org.scala-lang" % "scala-reflect" % "2.11.2",
   // util
   "com.typesafe.scala-logging" %% "scala-logging-slf4j" % "2.1.2",
   "ch.qos.logback" % "logback-classic" % "1.1.2",
