@@ -86,7 +86,7 @@ class MentionQueueSender extends Actor with StrictLogging {
 
   override def receive = {
     case s: Status =>
-      logger.info("sending mention to SQS")
+      logger.info(s"sending mention to SQS from ${s.getUser.getScreenName}")
       codeFromMessage(s.getText).foreach(code =>
         sqsClient.sendMessage(queueUrl, CodeTweet(code, s.getUser.getScreenName, s.getId).pickle.value))
   }
@@ -102,9 +102,9 @@ class MentionQueueReceiver(codeRunner: ActorRef, replySender: ActorRef) extends 
     case Pull =>
       logger.info("pulling sqs")
       sqsClient.receiveMessage(queueUrl).getMessages.foreach { message: Message =>
-        logger.info("pulled mention from SQS")
         sqsClient.deleteMessage(queueUrl, message.getReceiptHandle)
         val status = message.getBody.unpickle[CodeTweet]
+        logger.info(s"pulled mention from SQS from ${status.source}")
         implicit val timeout = Timeout(10.minutes)
         (codeRunner ? status.code).mapTo[String].map(codeResult => replySender ! status.copy(code = codeResult))
       }
@@ -114,7 +114,7 @@ class MentionQueueReceiver(codeRunner: ActorRef, replySender: ActorRef) extends 
 class ReplySender extends Actor with StrictLogging {
   override def receive = {
     case t: CodeTweet =>
-      logger.info("replying to tweet")
+      logger.info(s"replying to tweet from ${t.source}")
       val twitter = TwitterFactory.getSingleton
       twitter.updateStatus(new StatusUpdate(s"@${t.source} ${t.code}".take(140)).inReplyToStatusId(t.originalId))
   }

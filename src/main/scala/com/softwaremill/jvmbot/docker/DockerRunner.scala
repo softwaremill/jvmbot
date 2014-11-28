@@ -3,9 +3,11 @@ package com.softwaremill.jvmbot.docker
 import com.spotify.docker.client.DefaultDockerClient
 import com.spotify.docker.client.DockerClient.LogsParameter
 import com.spotify.docker.client.messages.ContainerConfig
+import com.typesafe.scalalogging.slf4j.StrictLogging
 
-class DockerRunner(image: String, args:String) {
+class DockerRunner(image: String, args:String) extends StrictLogging {
   def run(code: String) = {
+    logger.info(s"Got code: $code on runner $image")
     val command = s"$args println($code)"
     val docker = DefaultDockerClient.fromEnv().build()
     docker.pull(image)
