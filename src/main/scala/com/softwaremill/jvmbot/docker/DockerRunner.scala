@@ -19,17 +19,18 @@ class DockerRunner(image: String) {
       Thread.sleep(3000L)
       executionTime += 3
     }
-    if (docker.inspectContainer(id).state().exitCode() == 0) {
+    val result: Option[String] = if (docker.inspectContainer(id).state().exitCode() == 0) {
       docker.killContainer(id)
       val logs = docker.logs(id, LogsParameter.STDERR, LogsParameter.STDOUT)
       val log = logs.readFully()
       logs.close()
-      docker.removeContainer(id)
-      docker.close()
       Some(log)
     } else {
       None
     }
+    docker.removeContainer(id)
+    docker.close()
+    result
   }
 }
 
