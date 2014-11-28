@@ -9,13 +9,14 @@ import com.amazonaws.services.dynamodbv2.model.{ScanRequest, AttributeValue, Put
 import com.amazonaws.services.sqs.AmazonSQSClient
 import com.amazonaws.services.sqs.model.Message
 import com.softwaremill.jvmbot.docker.CodeRunner
+import com.typesafe.scalalogging.slf4j.StrictLogging
 import twitter4j._
 import scala.collection.JavaConversions._
 import scala.concurrent.duration._
 import scala.pickling._
 import scala.pickling.json._
 
-object TwitterClient extends App {
+object TwitterClient extends App with StrictLogging {
   val actorSystem = ActorSystem()
 
   import actorSystem.dispatcher
@@ -30,7 +31,7 @@ object TwitterClient extends App {
   actorSystem.scheduler.schedule(0.seconds, 5.seconds, queuePuller, Pull)
 }
 
-class MentionPuller(consumer: ActorRef) extends Actor {
+class MentionPuller(consumer: ActorRef) extends Actor with StrictLogging {
   val twitter = TwitterFactory.getSingleton
 
   override def receive = {
@@ -42,7 +43,7 @@ class MentionPuller(consumer: ActorRef) extends Actor {
   }
 }
 
-class MentionConsumer(queueSender: ActorRef) extends Actor {
+class MentionConsumer(queueSender: ActorRef) extends Actor with StrictLogging {
 
   import AWS._
 
@@ -55,7 +56,7 @@ class MentionConsumer(queueSender: ActorRef) extends Actor {
     dynamoClient.setRegion(Region.getRegion(Regions.US_EAST_1))
     val items = dynamoClient.scan(new ScanRequest(DynamoTable))
     items.getItems.foreach(item => consumedMentions += item.get(DynamoId).getS.toLong)
-    println(s"Loaded tweets from dynamo, size: ${consumedMentions.size}")
+    logger.info(s"Loaded tweets from dynamo, size: ${consumedMentions.size}")
   }
 
   override def receive = {
@@ -63,14 +64,14 @@ class MentionConsumer(queueSender: ActorRef) extends Actor {
       if (!consumedMentions.contains(s.getId)) {
         dynamoClient.putItem(new PutItemRequest(DynamoTable,
           mapAsJavaMap(Map(DynamoId -> new AttributeValue().withS(s.getId.toString)))))
-        println(s"Wrote status with id ${s.getId} to dynamo")
+        logger.info(s"Wrote status with id ${s.getId} to dynamo")
         consumedMentions += s.getId
         queueSender ! s
       }
   }
 }
 
-class MentionQueueSender extends Actor {
+class MentionQueueSender extends Actor with StrictLogging {
 
   import AWS._
 
@@ -88,7 +89,7 @@ class MentionQueueSender extends Actor {
   }
 }
 
-class MentionQueueReceiver(codeRunner: ActorRef, replySender: ActorRef) extends Actor {
+class MentionQueueReceiver(codeRunner: ActorRef, replySender: ActorRef) extends Actor with StrictLogging {
 
   import AWS._
   import akka.pattern.ask
@@ -105,7 +106,7 @@ class MentionQueueReceiver(codeRunner: ActorRef, replySender: ActorRef) extends 
   }
 }
 
-class ReplySender extends Actor {
+class ReplySender extends Actor with StrictLogging {
   override def receive = {
     case t: CodeTweet =>
       val twitter = TwitterFactory.getSingleton
