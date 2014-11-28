@@ -36,6 +36,7 @@ class MentionPuller(consumer: ActorRef) extends Actor with StrictLogging {
 
   override def receive = {
     case Pull =>
+      logger.info("Pulling mentions")
       val statuses = twitter.getMentionsTimeline
       for (status <- statuses) {
         consumer ! status
@@ -62,6 +63,7 @@ class MentionConsumer(queueSender: ActorRef) extends Actor with StrictLogging {
   override def receive = {
     case s: Status =>
       if (!consumedMentions.contains(s.getId)) {
+        logger.info("consuming mention")
         dynamoClient.putItem(new PutItemRequest(DynamoTable,
           mapAsJavaMap(Map(DynamoId -> new AttributeValue().withS(s.getId.toString)))))
         logger.info(s"Wrote status with id ${s.getId} to dynamo")
@@ -84,6 +86,7 @@ class MentionQueueSender extends Actor with StrictLogging {
 
   override def receive = {
     case s: Status =>
+      logger.info("sending mention to SQS")
       codeFromMessage(s.getText).foreach(code =>
         sqsClient.sendMessage(queueUrl, CodeTweet(code, s.getUser.getScreenName, s.getId).pickle.value))
   }
@@ -97,7 +100,9 @@ class MentionQueueReceiver(codeRunner: ActorRef, replySender: ActorRef) extends 
 
   override def receive = {
     case Pull =>
+      logger.info("pulling sqs")
       sqsClient.receiveMessage(queueUrl).getMessages.foreach { message: Message =>
+        logger.info("pulled mention from SQS")
         sqsClient.deleteMessage(queueUrl, message.getReceiptHandle)
         val status = message.getBody.unpickle[CodeTweet]
         implicit val timeout = Timeout(10.minutes)
@@ -109,6 +114,7 @@ class MentionQueueReceiver(codeRunner: ActorRef, replySender: ActorRef) extends 
 class ReplySender extends Actor with StrictLogging {
   override def receive = {
     case t: CodeTweet =>
+      logger.info("replying to tweet")
       val twitter = TwitterFactory.getSingleton
       twitter.updateStatus(new StatusUpdate(s"@${t.source} ${t.code}".take(140)).inReplyToStatusId(t.originalId))
   }
