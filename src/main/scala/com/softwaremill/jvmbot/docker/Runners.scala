@@ -8,7 +8,7 @@ object Runners {
   val NodeImage = "szimano/nodejs-eval"
   val runners = Seq(
     new DockerRunner(GroovyImage, (x: String) => s"-e println($x)"),
-    new DockerRunner(ScalaImage, (x: String) => s"println($x)"),
+    new DockerRunner(ScalaImage, identity),
     new DockerRunner(NodeImage, (x: String) => s"console.log($x)")
   )
 

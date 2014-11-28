@@ -6,5 +6,5 @@ object ScalaEval extends App {
 
   val cm = ru.runtimeMirror(getClass.getClassLoader)
   val tb = cm.mkToolBox()
-  tb.eval(tb.parse(args.mkString(" ")))
+  println(tb.eval(tb.parse(args.mkString(" "))))
 }
