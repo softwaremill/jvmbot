@@ -4,20 +4,24 @@ import com.spotify.docker.client.DefaultDockerClient
 import com.spotify.docker.client.DockerClient.LogsParameter
 import com.spotify.docker.client.messages.ContainerConfig
 
-class DockerRunner(image:String) {
-  def run(code:String) = {
+class DockerRunner(image: String) {
+  def run(code: String) = {
+    val command = s"-e println $code"
     val docker = DefaultDockerClient.fromEnv().build()
     docker.pull(image)
     val config = ContainerConfig.builder().image(image)
-      .cmd(s"-e println $code").attachStderr(true).attachStdout(true).build()
+      .cmd(command).networkDisabled(true).attachStderr(true).attachStdout(true).build()
     val creation = docker.createContainer(config)
     val id = creation.id()
     docker.startContainer(id)
-    Thread.sleep(3000L)
+    var executionTime = 0
+    while (docker.inspectContainer(id).state().running() && executionTime < 60) {
+      Thread.sleep(3000L)
+      executionTime += 3
+    }
     docker.killContainer(id)
     val logs = docker.logs(id, LogsParameter.STDERR, LogsParameter.STDOUT)
     val log = logs.readFully()
-    println("end")
     logs.close()
     docker.removeContainer(id)
     docker.close()
