@@ -5,10 +5,10 @@ import com.spotify.docker.client.DockerClient.LogsParameter
 import com.spotify.docker.client.messages.ContainerConfig
 import com.typesafe.scalalogging.slf4j.StrictLogging
 
-class DockerRunner(image: String, args:String) extends StrictLogging {
+class DockerRunner(image: String, makeCommand: String => String) extends StrictLogging {
   def run(code: String) = {
     logger.info(s"Got code: $code on runner $image")
-    val command = s"$args println($code)"
+    val command = makeCommand(code)
     val docker = DefaultDockerClient.fromEnv().build()
     docker.pull(image)
     val config = ContainerConfig.builder().image(image)
@@ -34,9 +34,4 @@ class DockerRunner(image: String, args:String) extends StrictLogging {
     docker.close()
     result
   }
-}
-
-object DockerRunner extends App {
-  val docker = new DockerRunner("webratio/groovy:2.3.7", "-e")
-  println(docker.run("(1..10).collect{it.toString()}.join(',')"))
 }
