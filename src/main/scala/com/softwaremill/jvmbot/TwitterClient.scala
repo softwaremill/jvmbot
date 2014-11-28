@@ -2,12 +2,13 @@ package com.softwaremill.jvmbot
 
 import akka.actor.{ActorRef, Props, ActorSystem, Actor}
 import akka.util.Timeout
-import com.amazonaws.auth.{PropertiesCredentials, BasicAWSCredentials, AWSCredentials}
+import com.amazonaws.auth.PropertiesCredentials
 import com.amazonaws.regions.{Region, Regions}
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
-import com.amazonaws.services.dynamodbv2.model.{ScanRequest, AttributeValue, PutItemRequest, BatchGetItemRequest}
+import com.amazonaws.services.dynamodbv2.model.{ScanRequest, AttributeValue, PutItemRequest}
 import com.amazonaws.services.sqs.AmazonSQSClient
 import com.amazonaws.services.sqs.model.Message
+import com.softwaremill.jvmbot.docker.CodeRunner
 import twitter4j._
 import scala.collection.JavaConversions._
 import scala.concurrent.duration._
@@ -102,13 +103,6 @@ class MentionQueueReceiver(codeRunner: ActorRef, replySender: ActorRef) extends 
         implicit val timeout = Timeout(10.minutes)
         (codeRunner ? status.code).mapTo[String].map(codeResult => replySender ! CodeTweet(codeResult, status.source))
       }
-  }
-}
-
-class CodeRunner extends Actor {
-  override def receive = {
-    case code: String =>
-      sender() ! code  
   }
 }
 
