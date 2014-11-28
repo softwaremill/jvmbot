@@ -5,19 +5,16 @@ import akka.util.Timeout
 import com.amazonaws.auth.PropertiesCredentials
 import com.amazonaws.regions.{Region, Regions}
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
-import com.amazonaws.services.dynamodbv2.model.{ScanRequest, AttributeValue, PutItemRequest}
-import com.amazonaws.services.sqs.AmazonSQSClient
-import com.amazonaws.services.sqs.model.Message
+import com.amazonaws.services.dynamodbv2.model.{AttributeValue, PutItemRequest, ScanRequest}
 import com.softwaremill.jvmbot.docker.CodeRunner
 import com.typesafe.scalalogging.slf4j.StrictLogging
 import twitter4j._
+
 import scala.collection.JavaConversions._
 import scala.concurrent.duration._
 
 object TwitterClient extends App with StrictLogging {
   val actorSystem = ActorSystem()
-
-  import actorSystem.dispatcher
 
   val codeRunner = actorSystem.actorOf(Props(new CodeRunner))
   val replySender = actorSystem.actorOf(Props(new ReplySender))
@@ -26,19 +23,29 @@ object TwitterClient extends App with StrictLogging {
   val mentionConsumer = actorSystem.actorOf(Props(new MentionConsumer(queueSender)))
   val mentionPuller = actorSystem.actorOf(Props(new MentionPuller(mentionConsumer)))
 
-  actorSystem.scheduler.schedule(0.seconds, 1.minute, mentionPuller, Pull)
+  mentionPuller ! Restart
 }
 
 class MentionPuller(consumer: ActorRef) extends Actor with StrictLogging {
-  val twitter = TwitterFactory.getSingleton
+  var ts: TwitterStream = null
 
   override def receive = {
-    case Pull =>
-      logger.info("Pulling mentions")
-      val statuses = twitter.getMentionsTimeline
-      for (status <- statuses) {
-        consumer ! status
+    case Restart =>
+      logger.info("Restarting stream")
+
+      if (ts != null) {
+        ts.shutdown()
       }
+
+      ts = new TwitterStreamFactory().getInstance()
+      ts.addListener(new UserStreamAdapter {
+        override def onException(ex: Exception) {
+          logger.error("Exception during twitter streaming", ex)
+          self ! Restart
+        }
+        override def onStatus(status: Status) = consumer ! status
+      })
+      ts.user()
   }
 }
 
@@ -111,7 +118,7 @@ class ReplySender extends Actor with StrictLogging {
   }
 }
 
-object Pull
+object Restart
 
 object AWS {
   val awsCredentials: PropertiesCredentials = new PropertiesCredentials(this.getClass.getResourceAsStream("/aws.properties"))
