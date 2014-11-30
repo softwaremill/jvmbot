@@ -1,4 +1,4 @@
-# Scala eval
+# Groovy eval
 
 FROM webratio/groovy:2.3.7
 MAINTAINER Tomasz Szymanski, tom@softwaremill.com

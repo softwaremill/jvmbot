@@ -18,6 +18,8 @@ libraryDependencies ++= Seq(
   "com.spotify" % "docker-client" % "2.7.1"
 )
 
+lazy val node = project
+
 mainClass in assembly := Some("com.softwaremill.jvmbot.TwitterClient")
 
 assemblyMergeStrategy in assembly := {
