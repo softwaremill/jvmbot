@@ -37,7 +37,7 @@ class StatsServer(statsActor: ActorRef)(implicit val actorSystem: ActorSystem) e
 
     implicit val timeout = Timeout(10.seconds)
 
-    startServer(interface = "localhost", port = 8080) {
+    startServer(interface = "0.0.0.0", port = 8080) {
       get {
         path("stats") {
           complete {
