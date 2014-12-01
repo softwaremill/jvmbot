@@ -15,7 +15,9 @@ libraryDependencies ++= Seq(
   "org.twitter4j" % "twitter4j-stream" % "4.0.2",
   "com.typesafe.akka" %% "akka-actor" % "2.3.7",
   "com.amazonaws" % "aws-java-sdk" % "1.9.8",
-  "com.spotify" % "docker-client" % "2.7.1"
+  "com.spotify" % "docker-client" % "2.7.1",
+  "io.spray" %% "spray-can" % "1.3.2",
+  "io.spray" %% "spray-routing" % "1.3.2"
 )
 
 lazy val node = project

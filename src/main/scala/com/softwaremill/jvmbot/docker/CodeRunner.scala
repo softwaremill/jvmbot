@@ -1,10 +1,17 @@
 package com.softwaremill.jvmbot.docker
 
-import akka.actor.Actor
+import akka.actor.{ActorRef, Actor}
+import com.softwaremill.jvmbot.{CodeRunStopped, CodeRunStarted}
 
-class CodeRunner extends Actor {
+class CodeRunner(stats: ActorRef) extends Actor {
   override def receive = {
     case code: String =>
-      sender() ! Runners.run(code)
+      stats ! CodeRunStarted
+      try {
+        val result = Runners.run(code)
+        sender() ! result
+      } finally {
+        stats ! CodeRunStopped
+      }
   }
 }

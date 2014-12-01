@@ -5,9 +5,10 @@ import com.softwaremill.jvmbot.docker.CodeRunner
 import com.typesafe.scalalogging.slf4j.StrictLogging
 
 object JVMBot extends App with StrictLogging {
-  val actorSystem = ActorSystem()
+  implicit val actorSystem = ActorSystem()
 
-  val codeRunner = actorSystem.actorOf(Props(new CodeRunner))
+  val statsActor = actorSystem.actorOf(Props(new StatsActor))
+  val codeRunner = actorSystem.actorOf(Props(new CodeRunner(statsActor)))
   val replySender = actorSystem.actorOf(Props(new ReplySender))
   val queueReceiver = actorSystem.actorOf(Props(new MentionQueueReceiver(codeRunner, replySender)))
   val queueSender = actorSystem.actorOf(Props(new MentionQueueSender(queueReceiver)))
@@ -15,4 +16,6 @@ object JVMBot extends App with StrictLogging {
   val mentionPuller = actorSystem.actorOf(Props(new MentionPuller(mentionConsumer)))
 
   mentionPuller ! Restart
+
+  new StatsServer(statsActor).start()
 }
