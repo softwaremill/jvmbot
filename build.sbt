@@ -20,7 +20,7 @@ libraryDependencies ++= Seq(
 
 lazy val node = project
 
-mainClass in assembly := Some("com.softwaremill.jvmbot.TwitterClient")
+mainClass in assembly := Some("com.softwaremill.jvmbot.JVMBot")
 
 assemblyMergeStrategy in assembly := {
   case PathList(ps @ _*) if ps.last == "pom.properties" => MergeStrategy.first

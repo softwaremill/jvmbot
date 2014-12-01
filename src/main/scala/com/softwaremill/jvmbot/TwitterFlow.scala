@@ -1,30 +1,16 @@
 package com.softwaremill.jvmbot
 
-import akka.actor.{ActorRef, Props, ActorSystem, Actor}
+import akka.actor.{Actor, ActorRef}
 import akka.util.Timeout
 import com.amazonaws.auth.PropertiesCredentials
 import com.amazonaws.regions.{Region, Regions}
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
 import com.amazonaws.services.dynamodbv2.model.{AttributeValue, PutItemRequest, ScanRequest}
-import com.softwaremill.jvmbot.docker.CodeRunner
 import com.typesafe.scalalogging.slf4j.StrictLogging
 import twitter4j._
 
 import scala.collection.JavaConversions._
 import scala.concurrent.duration._
-
-object TwitterClient extends App with StrictLogging {
-  val actorSystem = ActorSystem()
-
-  val codeRunner = actorSystem.actorOf(Props(new CodeRunner))
-  val replySender = actorSystem.actorOf(Props(new ReplySender))
-  val queueReceiver = actorSystem.actorOf(Props(new MentionQueueReceiver(codeRunner, replySender)))
-  val queueSender = actorSystem.actorOf(Props(new MentionQueueSender(queueReceiver)))
-  val mentionConsumer = actorSystem.actorOf(Props(new MentionConsumer(queueSender)))
-  val mentionPuller = actorSystem.actorOf(Props(new MentionPuller(mentionConsumer)))
-
-  mentionPuller ! Restart
-}
 
 class MentionPuller(consumer: ActorRef) extends Actor with StrictLogging {
   var ts: TwitterStream = null
@@ -51,7 +37,7 @@ class MentionPuller(consumer: ActorRef) extends Actor with StrictLogging {
 
 class MentionConsumer(queueSender: ActorRef) extends Actor with StrictLogging {
 
-  import AWS._
+  import com.softwaremill.jvmbot.AWS._
 
   var consumedMentions: Set[Long] = Set()
 
