@@ -12,12 +12,17 @@ class DockerRunner(image: String, makeCommand: String => String) extends StrictL
     val docker = DefaultDockerClient.fromEnv().build()
     docker.pull(image)
     val config = ContainerConfig.builder().image(image)
-      .cmd(command).networkDisabled(true).attachStderr(true).attachStdout(true).build()
+      .cmd(command)
+      .networkDisabled(true)
+      .memory(525950976L)
+      .attachStderr(true)
+      .attachStdout(true)
+      .build()
     val creation = docker.createContainer(config)
     val id = creation.id()
     docker.startContainer(id)
     var executionTime = 0
-    while (docker.inspectContainer(id).state().running() && executionTime < 60) {
+    while (docker.inspectContainer(id).state().running() && executionTime < 30) {
       Thread.sleep(3000L)
       executionTime += 3
     }
