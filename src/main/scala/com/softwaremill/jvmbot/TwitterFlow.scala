@@ -98,9 +98,10 @@ class MentionQueueReceiver(codeRunner: ActorRef, replySender: ActorRef) extends 
 class ReplySender extends Actor with StrictLogging {
   override def receive = {
     case t: CodeTweet =>
-      logger.info(s"replying to tweet from ${t.source}")
+      val reply = s"@${t.source} ${t.code}".take(140)
+      logger.info(s"replying to tweet from ${t.source}: $reply")
       val twitter = TwitterFactory.getSingleton
-      twitter.updateStatus(new StatusUpdate(s"@${t.source} ${t.code}".take(140)).inReplyToStatusId(t.originalId))
+      twitter.updateStatus(new StatusUpdate(reply).inReplyToStatusId(t.originalId))
   }
 }
 
