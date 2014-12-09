@@ -55,7 +55,7 @@ class MentionConsumer(queueSender: ActorRef) extends Actor with StrictLogging {
   override def receive = {
     case s: Status =>
       if (!consumedMentions.contains(s.getId)) {
-        logger.info("consuming mention")
+        logger.info(s"consuming mention with id ${s.getId}")
         dynamoClient.putItem(new PutItemRequest(DynamoTable,
           mapAsJavaMap(Map(
             DynamoId -> new AttributeValue().withS(s.getId.toString),
