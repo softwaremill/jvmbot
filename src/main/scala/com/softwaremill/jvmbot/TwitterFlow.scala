@@ -43,6 +43,7 @@ class MentionConsumer(queueSender: ActorRef) extends Actor with StrictLogging {
 
   val DynamoTable = "jvmbot"
   val DynamoId = "tweet_id"
+  val DynamoMessage = "tweet_msg"
 
   override def preStart() = {
     dynamoClient.setRegion(Region.getRegion(Regions.US_EAST_1))
@@ -56,7 +57,10 @@ class MentionConsumer(queueSender: ActorRef) extends Actor with StrictLogging {
       if (!consumedMentions.contains(s.getId)) {
         logger.info("consuming mention")
         dynamoClient.putItem(new PutItemRequest(DynamoTable,
-          mapAsJavaMap(Map(DynamoId -> new AttributeValue().withS(s.getId.toString)))))
+          mapAsJavaMap(Map(
+            DynamoId -> new AttributeValue().withS(s.getId.toString),
+            DynamoMessage -> new AttributeValue().withS(s.getText)
+          ))))
         logger.info(s"Wrote status with id ${s.getId} to dynamo")
         consumedMentions += s.getId
         queueSender ! s
