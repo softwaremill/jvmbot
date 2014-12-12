@@ -5,15 +5,21 @@ import scala.annotation.tailrec
 object Runners {
   val GroovyImage = "szimano/groovy-eval"
   val ScalaImage = "adamw/scalaeval"
-  val NodeImage = "szimano/nashorn-eval"
+  val JavascriptImage = "szimano/nashorn-eval"
+  // make sure the runner IDs are unique!
   val runners = Seq(
-    new DockerRunner(GroovyImage, identity),
-    new DockerRunner(ScalaImage, identity),
-    new DockerRunner(NodeImage, identity)
+    new DockerRunner(JavascriptImage, identity, 'j'),
+    new DockerRunner(ScalaImage, identity, 's'),
+    new DockerRunner(GroovyImage, identity, 'g')
   )
+  val runnersByIds = runners.map(r => r.id -> r).toMap
+  val hashTagLookupRegex = s".*#([${runners.map{_.id}.mkString(",")}])".r
 
   def run(code: String): String = {
-    run(runners, code)
+    code match {
+      case hashTagLookupRegex(runnerId) => run(Seq(runnersByIds(runnerId.charAt(0))), code.dropRight(2))
+      case _ => run(runners, code)
+    }
   }
 
   @tailrec

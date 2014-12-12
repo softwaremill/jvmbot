@@ -5,7 +5,7 @@ import com.spotify.docker.client.DockerClient.LogsParameter
 import com.spotify.docker.client.messages.ContainerConfig
 import com.typesafe.scalalogging.slf4j.StrictLogging
 
-class DockerRunner(image: String, makeCommand: String => String) extends StrictLogging {
+case class DockerRunner(image: String, makeCommand: String => String, id: Char) extends StrictLogging {
   def run(code: String) = {
     logger.info(s"Got code: $code on runner $image")
     val command = makeCommand(code)
